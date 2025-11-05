@@ -137,7 +137,7 @@ BNB: $310
 
 ---
 
-IMPORTANT: Always return result with format in below schema:
+IMPORTANT: Always return RAWJSON only with format in below schema:
 
 ## Output Schema
 Your response **must strictly match** this JSON schema:
@@ -171,8 +171,8 @@ Your response **must strictly match** this JSON schema:
      */
     model: ({ runtimeContext }: { runtimeContext: RuntimeContext<GenerateArtifactRuntimeContext> }) => {
         return {
-            id:  `${runtimeContext.get("provider")}/${runtimeContext.get("model")}` as `${string}/${string}`,
-            apiKey: runtimeContext.get("apiKey") || process.env.OPENAI_API_KEY,
+            id:  'openai/gpt-4.1',
+            apiKey: process.env.OPENAI_API_KEY,
         }
     },
 });

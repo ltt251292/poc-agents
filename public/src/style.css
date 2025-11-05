@@ -15,7 +15,7 @@ body {
 .app-wrapper {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
 }
 
 /* Top bar for model selection */
@@ -124,6 +124,23 @@ body {
     justify-items: start; /* đảm bảo cột trái bám sát mép trái */
     overflow-x: hidden; /* tránh panel phải tràn ra ngoài */
     box-sizing: border-box;
+}
+
+/* Debate mode: chat full width */
+.container.debate-mode {
+    grid-template-columns: 280px 1fr; /* sidebar + chat full width */
+    gap: 28px;
+}
+
+.container.debate-mode .main-content {
+    position: static; /* bỏ sticky để full width tự nhiên */
+    top: auto;
+    width: auto; /* không cố định 520px */
+}
+
+.container.debate-mode .artifacts-panel-wrapper,
+.container.debate-mode .attachments-panel-wrapper {
+    display: none !important; /* ẩn các panel và sidebar */
 }
 
 /* Left conversations sidebar */
@@ -461,7 +478,7 @@ body {
     position: sticky; /* cố định bên trái */
     top: 20px;
     align-self: start;
-    width: 520px; /* cố định chiều rộng khớp với grid */
+    width: 100%; /* cố định chiều rộng khớp với grid */
     margin: 0; /* ngăn center tự động */
     z-index: 2; /* cao hơn sidebar để không bị che */
 }
@@ -681,6 +698,86 @@ body {
 /* Attachments (search results) */
 .attachments {
     display: block;
+}
+
+/* Inline search summary in chat */
+.search-summary {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px 12px 0 12px;
+}
+
+.search-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.search-summary-title {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.search-summary-tabs {
+    display: flex;
+    gap: 12px;
+    color: #475569;
+    font-weight: 600;
+}
+
+.search-summary-tabs .tab {
+    opacity: 0.7;
+}
+
+.search-summary-tabs .tab.active {
+    opacity: 1;
+}
+
+.search-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.search-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f8fafc;
+    text-decoration: none;
+    color: inherit;
+}
+
+.search-card.more {
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #334155;
+}
+
+.search-card-source {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #556;
+    font-size: 12px;
+}
+
+.search-card-favicon {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.search-card-title {
+    font-weight: 600;
+    color: #111827;
 }
 
 .attachments-header {

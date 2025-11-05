@@ -324,11 +324,12 @@ app.get('/api/artifacts/:artifactId/files', async (req: Request, res: Response) 
  * POST /api/workflow/debate
  * Request body:
  * {
- *   "topic": string,
- *   "position": string,
  *   "model": string,
  *   "apiKey": string,
  *   "provider": string,
+ *   "message": string,
+ *   "userId": string,
+ *   "conversationId": string,
  * }
  * Response: Server-Sent Events (SSE) stream
  * Events:
@@ -344,13 +345,12 @@ app.post('/api/workflow/debate', async (req: Request, res: Response) => {
     const body = req.body;
     
     logger.info({
-      topic: body.topic,
-      position: body.position,
+      topic: body.message,
     }, 'Received debate workflow request');
     
     // Validate required fields
-    if (!body.topic || !body.position) {
-      return res.status(400).json({ error: 'topic and position are required' });
+    if (!body.message) {
+      return res.status(400).json({ error: 'message is required' });
     }
     
     // Setup SSE headers
@@ -367,6 +367,9 @@ app.post('/api/workflow/debate', async (req: Request, res: Response) => {
     runtimeContext.set("model", body.model || "gpt-4");
     runtimeContext.set("apiKey", body.apiKey || process.env.OPENAI_API_KEY);
     runtimeContext.set("provider", body.provider || "openai");
+    runtimeContext.set("userId", body.userId || "");
+    runtimeContext.set("conversationId", body.conversationId || uuidv4());
+    runtimeContext.set("messageId", uuidv4());
     
     // Setup stream callback để forward agent streaming chunks ra SSE
     runtimeContext.set("streamCallback", async (stepId: string, chunk: any) => {
@@ -483,8 +486,7 @@ app.post('/api/workflow/debate', async (req: Request, res: Response) => {
     // Start workflow execution
     const finalResult = await run.start({
       inputData: {
-        topic: body.topic,
-        position: body.position,
+        message: body.message,
       },
       runtimeContext,
     });
@@ -517,8 +519,7 @@ app.post('/api/workflow/debate', async (req: Request, res: Response) => {
     res.end();
     
     logger.info({
-      topic: body.topic,
-      position: body.position,
+      message: body.message,
       status: finalResult.status,
     }, 'Debate workflow completed');
   } catch (error) {

@@ -23,6 +23,18 @@ function Sidebar() {
         
         <div className="top-bar-controls">
           <div className="form-group-inline">
+            <label htmlFor="mode">Mode:</label>
+            <select
+              id="mode"
+              value={config.mode || 'normal'}
+              onChange={(e) => handleChange('mode', e.target.value)}
+            >
+              <option value="normal">Normal</option>
+              <option value="debate">Debate</option>
+            </select>
+          </div>
+
+          <div className="form-group-inline">
             <label htmlFor="userId">User ID:</label>
             <input
               type="text"

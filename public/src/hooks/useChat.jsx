@@ -47,12 +47,16 @@ export function ChatProvider({ children }) {
     model: 'gpt-4',
     apiKey: '',
     userId: 'user-001',
-    instructions: ''
+    instructions: '',
+    mode: 'normal' // 'normal' | 'debate'
   });
   const [attachments, setAttachments] = useState(null);
   const [artifacts, setArtifacts] = useState([]);
   const conversationIdRef = useRef(null);
   const fullResponseRef = useRef('');
+  // Map stepId -> { messageId, buffer }
+  const stepMessageMapRef = useRef(new Map());
+  const stepBufferMapRef = useRef(new Map());
 
   /**
    * Generate unique conversation ID
@@ -79,13 +83,14 @@ export function ChatProvider({ children }) {
   /**
    * Add message to chat
    */
-  const addMessage = useCallback((text, type) => {
+  const addMessage = useCallback((text, type, meta = {}) => {
     const message = {
       id: Date.now() + Math.random(),
       text,
       type,
       timestamp: new Date().toLocaleTimeString(),
-      html: parseMarkdown(text)
+      html: parseMarkdown(text),
+      ...meta
     };
     setMessages(prev => [...prev, message]);
     return message;
@@ -159,14 +164,36 @@ export function ChatProvider({ children }) {
     if (event === 'message') {
       if (data.event === 'on_message_delta' && data.data) {
         const deltaData = data.data;
+        const stepId = deltaData?.id;
         
         if (deltaData.delta && deltaData.delta.content) {
-          deltaData.delta.content.forEach(item => {
-            if ((item.type === 'text' || item.type === 'text-delta') && item.text) {
-              fullResponseRef.current += item.text;
-              updateMessage(messageId, fullResponseRef.current);
+          // If has stepId (debate workflow), split messages by step
+          if (stepId) {
+            // Ensure message exists for this step
+            if (!stepMessageMapRef.current.has(stepId)) {
+              const msg = addMessage('', 'assistant', { stepId });
+              stepMessageMapRef.current.set(stepId, msg.id);
+              stepBufferMapRef.current.set(stepId, '');
             }
-          });
+            const targetMessageId = stepMessageMapRef.current.get(stepId);
+            let currentBuffer = stepBufferMapRef.current.get(stepId) || '';
+
+            deltaData.delta.content.forEach(item => {
+              if ((item.type === 'text' || item.type === 'text-delta') && item.text) {
+                currentBuffer += item.text;
+              }
+            });
+            stepBufferMapRef.current.set(stepId, currentBuffer);
+            updateMessage(targetMessageId, currentBuffer);
+          } else {
+            // Fallback: single assistant message (normal mode)
+            deltaData.delta.content.forEach(item => {
+              if ((item.type === 'text' || item.type === 'text-delta') && item.text) {
+                fullResponseRef.current += item.text;
+                updateMessage(messageId, fullResponseRef.current);
+              }
+            });
+          }
         } else if (deltaData.done) {
           console.log('Stream complete');
         }
@@ -278,26 +305,38 @@ export function ChatProvider({ children }) {
     // Show typing indicator
     setIsStreaming(true);
     fullResponseRef.current = '';
+    stepMessageMapRef.current.clear();
+    stepBufferMapRef.current.clear();
     const typingMessage = addTypingIndicator();
     const typingMessageId = typingMessage.id;
 
     try {
-      const requestConfig = {
-        agentName: config.agentName,
-        instructions: config.instructions,
-        model: config.model,
-        apiKey: config.apiKey,
-        tools: [],
-        provider: config.provider,
-        message: messageText,
-        userId: config.userId,
-        conversationId: generateConversationId()
-      };
+      // Build request payload depending on mode
+      const isDebate = config.mode === 'debate';
+      const requestConfig = isDebate
+        ? {
+            model: config.model,
+            apiKey: config.apiKey,
+            provider: config.provider,
+            message: messageText,
+          }
+        : {
+            agentName: config.agentName,
+            instructions: config.instructions,
+            model: config.model,
+            apiKey: config.apiKey,
+            tools: [],
+            provider: config.provider,
+            message: messageText,
+            userId: config.userId,
+            conversationId: generateConversationId()
+          };
 
       // Get API URL from environment variables
       const apiHost = import.meta.env.VITE_API_HOST || 'http://localhost:5000';
-      const apiPath = import.meta.env.VITE_API_PATH || '/api/agent/chat';
-      const apiUrl = `${apiHost}${apiPath}`;
+      const defaultPath = import.meta.env.VITE_API_PATH || '/api/agent/chat';
+      const debatePath = '/api/workflow/debate';
+      const apiUrl = `${apiHost}${isDebate ? debatePath : defaultPath}`;
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -309,8 +348,12 @@ export function ChatProvider({ children }) {
 
       // Remove typing indicator
       removeMessage(typingMessageId);
-      const assistantMessage = addMessage('', 'assistant');
-      const assistantMessageId = assistantMessage.id;
+      // Only pre-create assistant message for normal mode
+      let assistantMessageId = null;
+      if (!isDebate) {
+        const assistantMessage = addMessage('', 'assistant');
+        assistantMessageId = assistantMessage.id;
+      }
 
       // Handle streaming response
       const reader = response.body.getReader();

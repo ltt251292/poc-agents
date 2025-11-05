@@ -1,12 +1,29 @@
 import React, { useEffect, useRef } from 'react';
 import { useChat } from '../hooks/useChat';
 
+// Map cố định từ stepId -> nhãn hiển thị trên web
+const STEP_TITLES = {
+  'proposer-initial': 'Proposer: Lập luận ban đầu',
+  'opposer-rebuttal': 'Opposer: Phản biện',
+  'proposer-counter': 'Proposer: Phản biện lại',
+  'moderator-summary': 'Moderator: Tóm tắt & Kết luận',
+};
+
+/**
+ * Lấy nhãn hiển thị cho stepId; fallback về chính stepId nếu chưa định nghĩa
+ * @param {string} stepId
+ * @returns {string}
+ */
+function getStepLabel(stepId) {
+  return STEP_TITLES[stepId] || stepId;
+}
+
 /**
  * ChatMessages component
  * Hiển thị danh sách tin nhắn trong cuộc trò chuyện
  */
 function ChatMessages() {
-  const { messages } = useChat();
+  const { messages, attachments } = useChat();
   const messagesEndRef = useRef(null);
 
   /**
@@ -68,6 +85,7 @@ function ChatMessages() {
 
   return (
     <div className="chat-messages" id="chatMessages">
+      <InlineSearchSummary attachments={attachments} />
       {messages.map((message) => (
         <MessageItem key={message.id} message={message} />
       ))}
@@ -97,6 +115,11 @@ function MessageItem({ message }) {
 
   return (
     <div className={`message ${message.type}`}>
+      {message.stepId && (
+        <div className="message-meta">
+          <span className="step-badge">{getStepLabel(message.stepId)}</span>
+        </div>
+      )}
       <div 
         className="message-content"
         dangerouslySetInnerHTML={{ __html: message.html || message.text }}
@@ -107,4 +130,67 @@ function MessageItem({ message }) {
 }
 
 export default ChatMessages;
+
+/**
+ * InlineSearchSummary component
+ * Hiển thị tóm tắt kết quả tìm kiếm ngay trong khung chat (như hình mẫu)
+ */
+function InlineSearchSummary({ attachments }) {
+  if (!attachments) return null;
+
+  const payload = attachments?.data?.data || attachments?.data;
+  const result = payload?.result || payload;
+  const organic = Array.isArray(result?.organic) ? result.organic : [];
+  if (organic.length === 0) return null;
+
+  const remaining = Math.max(organic.length - 3, 0);
+
+  const getDomain = (url) => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return '';
+    }
+  };
+
+  const getFaviconUrl = (domain) => (domain ? `https://www.google.com/s2/favicons?domain=${domain}` : '');
+
+  return (
+    <div className="search-summary">
+      <div className="search-summary-header">
+        <span className="search-summary-title">Hoàn tất tìm kiếm</span>
+        <div className="search-summary-tabs">
+          <span className="tab active">Tất cả</span>
+          <span className="tab">Tin tức</span>
+        </div>
+      </div>
+      <div className="search-summary-cards">
+        {organic.slice(0, 3).map((item, idx) => {
+          const domain = getDomain(item.link);
+          const favicon = getFaviconUrl(domain);
+          return (
+            <a
+              key={idx}
+              className="search-card"
+              href={item.link || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <div className="search-card-source">
+                {favicon && <img className="search-card-favicon" src={favicon} alt="" />}
+                <span className="search-card-domain">{domain}</span>
+              </div>
+              <div className="search-card-title">{item.title || 'Untitled'}</div>
+            </a>
+          );
+        })}
+        {remaining > 0 && (
+          <div className="search-card more">
+            +{remaining} sources
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 

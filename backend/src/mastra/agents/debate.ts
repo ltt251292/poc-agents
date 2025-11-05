@@ -1,5 +1,6 @@
 import { Agent } from "@mastra/core/agent";
 import { RuntimeContext } from "@mastra/core/runtime-context";
+import { serp as searchSerperTool } from "../tools/serper.js";
 
 /**
  * Runtime context type cho debate agents
@@ -9,6 +10,10 @@ export type DebateRuntimeContext = {
   "apiKey": string;
   "provider": string;
   "streamCallback"?: (stepId: string, chunk: any) => void;
+  /** Optional context to support tool usage and usage logging */
+  "userId"?: string;
+  "conversationId"?: string;
+  "messageId"?: string;
 };
 
 /**
@@ -51,6 +56,14 @@ You are a Proposer Agent responsible for presenting and defending a position in 
 - Use examples and analogies when helpful
 - Keep responses focused and concise
 - End with a strong concluding statement that reinforces your position
+
+# Tool Usage (Optional but Recommended)
+- You can use the search_serper tool to gather recent facts, statistics, and credible sources.
+- Workflow when using tools:
+  1) Call search_serper with a precise query
+  2) Wait for results, extract 1-3 most relevant points with URLs
+  3) Incorporate cited facts concisely into your argument
+- Keep citations short (domain and title). Do not dump raw tool output.
     `;
   },
 
@@ -58,16 +71,17 @@ You are a Proposer Agent responsible for presenting and defending a position in 
    * Model configuration dựa trên provider trong runtime context
    */
   model: ({ runtimeContext }: { runtimeContext: RuntimeContext<DebateRuntimeContext> }) => {
-    switch (runtimeContext.get("provider")) {
-      case "openai":
-        return {
-          id: `${runtimeContext.get("provider")}/${runtimeContext.get("model")}` as `${string}/${string}`,
-          apiKey: runtimeContext.get("apiKey") || process.env.OPENAI_API_KEY,
-        };
-      default:
-        throw new Error(`Provider ${runtimeContext.get("provider")} not supported`);
-    }
+    return {
+        id: "google/gemini-2.5-flash",
+        apiKey: process.env.GEMINI_API_KEY,
+    };
   },
+  /**
+   * Tools available cho Proposer Agent (search_serper để thu thập dẫn chứng)
+   */
+  tools: () => ({
+    "search_serper": searchSerperTool,
+  }),
 });
 
 /**
@@ -111,6 +125,14 @@ You are an Opposer Agent responsible for challenging and critiquing a position i
 - Provide evidence and reasoning for your position
 - Keep responses focused and concise
 - End with a strong statement that challenges the opposing position
+
+# Tool Usage (Optional but Recommended)
+- You can use the search_serper tool to verify claims and find counter-evidence.
+- Workflow when using tools:
+  1) Call search_serper with a targeted rebuttal query
+  2) Wait for results, extract 1-3 key refutations with URLs
+  3) Integrate them succinctly to undermine weak points
+- Keep citations short (domain and title). Do not dump raw tool output.
     `;
   },
 
@@ -118,16 +140,17 @@ You are an Opposer Agent responsible for challenging and critiquing a position i
    * Model configuration dựa trên provider trong runtime context
    */
   model: ({ runtimeContext }: { runtimeContext: RuntimeContext<DebateRuntimeContext> }) => {
-    switch (runtimeContext.get("provider")) {
-      case "openai":
-        return {
-          id: `${runtimeContext.get("provider")}/${runtimeContext.get("model")}` as `${string}/${string}`,
-          apiKey: runtimeContext.get("apiKey") || process.env.OPENAI_API_KEY,
-        };
-      default:
-        throw new Error(`Provider ${runtimeContext.get("provider")} not supported`);
-    }
+    return {
+        id: "openai/gpt-4o-mini",
+        apiKey: process.env.OPENAI_API_KEY,
+    };
   },
+  /**
+   * Tools available cho Opposer Agent (search_serper để tìm phản biện có dẫn chứng)
+   */
+  tools: () => ({
+    "search_serper": searchSerperTool,
+  }),
 });
 
 /**
@@ -173,7 +196,20 @@ You are a Moderator Agent responsible for summarizing and concluding a debate.
 - Summarize the main arguments from both sides
 - Identify areas of agreement and disagreement
 - Provide a balanced conclusion with insights
-- End with a thoughtful reflection on the debate
+- Then, end with a SINGLE, DECISIVE final result.
+
+# Final Result Requirements (MANDATORY)
+- You MUST choose one position or provide one concrete outcome. Do NOT hedge.
+- Use this exact section at the end, in the same language as the message:
+
+Final Decision: <one-sentence decisive verdict>
+Final Answer: <clear, actionable final answer or recommendation>
+
+- Do not add any extra sections after Final Answer.
+
+# Tool Usage (Optional)
+- You may use search_serper to verify crucial claims before concluding.
+- Only include citations that materially affect the verdict.
     `;
   },
 
@@ -191,5 +227,11 @@ You are a Moderator Agent responsible for summarizing and concluding a debate.
         throw new Error(`Provider ${runtimeContext.get("provider")} not supported`);
     }
   },
+  /**
+   * Tools available cho Moderator Agent (search_serper để kiểm chứng trước khi chốt)
+   */
+  tools: () => ({
+    "search_serper": searchSerperTool,
+  }),
 });
 

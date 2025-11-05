@@ -12,28 +12,29 @@ import ConversationsSidebar from './components/ConversationsSidebar';
  * Quản lý layout chính của ứng dụng chat AI Agent
  */
 function AppContent() {
-  const { artifacts, attachments } = useChat();
+  const { artifacts, attachments, config } = useChat();
   const hasArtifacts = artifacts && artifacts.length > 0;
   // Check if attachments has organic results
   const payload = attachments?.data?.data || attachments?.data;
   const organic = payload?.result?.organic || payload?.organic || [];
   const hasAttachments = Array.isArray(organic) && organic.length > 0;
+  const isDebate = config?.mode === 'debate';
 
   return (
     <div className="app-wrapper">
       <Sidebar />
-      <div className={`container ${hasArtifacts ? '' : 'artifacts-hidden'} ${hasAttachments ? '' : 'attachments-hidden'}`}>
+      <div className={`container ${hasArtifacts ? '' : 'artifacts-hidden'} ${hasAttachments ? '' : 'attachments-hidden'} ${isDebate ? 'debate-mode' : ''}`}>
         <ConversationsSidebar />
         <div className="main-content">
           <ChatMessages />
           <ChatInput />
         </div>
-        <div className="artifacts-panel-wrapper">
-          <ArtifactsPanel />
-        </div>
-        <div className="attachments-panel-wrapper">
-          <AttachmentsPanel />
-        </div>
+        {!isDebate && (
+          <div className="artifacts-panel-wrapper">
+            <ArtifactsPanel />
+          </div>
+        )}
+        {/* Bỏ component search rời: AttachmentsPanel không còn được render */}
       </div>
     </div>
   );
